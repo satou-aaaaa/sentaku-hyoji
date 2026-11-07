@@ -1,0 +1,29 @@
+{
+  "name": "洗濯表示よみ",
+  "short_name": "洗濯表示よみ",
+  "description": "服のタグの洗濯表示を読んで、洗い方・干し方を選ぶ1日5問",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef4f8",
+  "theme_color": "#eef4f8",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
