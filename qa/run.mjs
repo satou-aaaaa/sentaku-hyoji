@@ -218,7 +218,7 @@ try {
     check("タグの記号は7つ、それぞれ形の説明を読み上げる（意味＝答えは言わない）・絵は読み上げない", labs.length === 7 && labs.every((l, i) => l === G.shape(P0.syms[i])) && !labs.some((l) => P0.opts.includes(l)) && await p.locator(".syms svg[aria-hidden=true]").count() === 7);
     const said = await p.evaluate(() => [...document.querySelectorAll("[data-a11y-say]")].map((el) => el.getAttribute("aria-label") || el.innerText).join("。"));
     const opt0 = await p.textContent(".ch");
-    check("「🔊 読む」の対象に、場面・記号の形・問い・選び肢が入る", said.includes("服のタグ") && said.includes(P0.ask) && said.includes(opt0.trim()));
+    check("「🔊 読む」の対象に、場面・7つの記号の形（文書の順）・問い・選び肢が入る（2026-11-07 CodeRabbit：タグの入れ物の名前だけで形を読まなかった）", said.includes(P0.scene) && said.includes(P0.syms.map((x) => G.shape(x)).join("。")) && said.includes(P0.ask) && said.includes(opt0.trim()));
     await p.evaluate(() => { __bs.save((s) => { s.runs.p = { mode: "p", date: __bs.todayKey(), list: ["pair|qa-pair"], res: [], cur: null, id: "qapair", a0: [] }; }); __bs.play("p"); });
     await p.waitForTimeout(100);
     check("2枚の服の問題は、それぞれの服の名前と記号を並べる", await p.locator(".syms.pair .sym").count() === 2 && /シャツの記号：/.test(await p.getAttribute(".syms.pair .sym", "aria-label")));

@@ -537,11 +537,11 @@ function symSvg(s) {
   }
   return `<svg viewBox="0 0 60 ${s.b ? 64 : 60}" aria-hidden="true" focusable="false">${o}</svg>`;
 }
-const symOne = (s, cap) => `<span class="sym" role="img" aria-label="${esc((cap ? cap + "の記号：" : "") + G.shape(s))}">${symSvg(s)}${cap ? esc(cap) : ""}</span>`;
+const symOne = (s, cap) => `<span class="sym" role="img" data-a11y-say aria-label="${esc((cap ? cap + "の記号：" : "") + G.shape(s))}">${symSvg(s)}${cap ? esc(cap) : ""}</span>`;
 function symsHtml(P) {
   if (!P.syms) return "";
-  if (P.pair) return `<div class="syms pair" data-a11y-say>${P.syms.map((s, i) => symOne(s, P.pair[i])).join("")}</div>`;
-  return `<div class="syms${P.tag ? " tag" : ""}" data-a11y-say${P.tag ? ' aria-label="服のタグ"' : ""}>${P.syms.map((s) => symOne(s)).join("")}</div>`;
+  if (P.pair) return `<div class="syms pair">${P.syms.map((s, i) => symOne(s, P.pair[i])).join("")}</div>`;
+  return `<div class="syms${P.tag ? " tag" : ""}">${P.syms.map((s) => symOne(s)).join("")}</div>`;
 }
 const CATI = { 洗う: "🫧", 漂白: "🧴", 乾かす: "☀️", アイロン: "♨️", クリーニング: "🏪", 表示: "🏷️", タグ: "🏷️" };
 function sceneHtml(P) {
