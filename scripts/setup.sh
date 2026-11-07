@@ -3,7 +3,7 @@
 #   使い方: bash scripts/setup.sh   （Windows は Git Bash で）
 # Claude Code のクラウドセッションでは .claude/settings.json の SessionStart フックが自動で呼ぶ。
 # CI の Setup check（共通部品）が、まっさらな環境でこれが通るかを確かめる。
-# ひな形: satou-aaaaa/shared-workflows の template/scripts/setup.sh。ゲームはそのまま写せば動く（npm_dir と next だけ、ちがえば書き換える）。
+# ひな形: satou-aaaaa/shared-workflows の template/scripts/setup.sh。ゲームはそのまま写せば動く（npm_dir と next だけ、ちがえば書き換える）。Python の節は使わないので消した。
 # ひな形の版: 6（上げたら写しの版も上げる。scripts/drift-check.mjs が古い写しを週次まとめに出す）
 #   2: 依存は毎回 npm ci・ブラウザが無ければ止める・このシェルで要る操作（nvm use・export）を最後に出す（shared-workflows incidents/2026-11-03-setup-false-ready.md）
 #   3: nvm.sh を --no-use で読む（.nvmrc の版が入っていないと、読んだだけで何も言わずに止まっていた。incidents/2026-11-04-setup-nvm-silent-stop.md）
@@ -89,17 +89,6 @@ if ! err=$(cd "$npm_dir" && node -e '
   [ "$(uname -s)" = Linux ] && hint="Linux なら足りないライブラリを sudo npx playwright install-deps chromium で入れる（Playwright Docs「Browsers」）か、$hint"
   fail "ブラウザを起動できない。$hint
 $err"
-fi
-
-# --- Python（版は .python-version。pyenv・uv・mise などはこのファイルを読む）---
-# requirements.txt が無いリポジトリ（ゲームなど）では何もしない（消し忘れても Setup check が落ちないように。2026-11-07 sagi-minuki）
-if [ -f requirements.txt ]; then
-  py=$(command -v python3 || command -v python || command -v py || true)
-  [ -n "$py" ] || fail "Python $(cat .python-version) が要る（https://www.python.org/ ）"
-  "$py" -m venv .venv
-  if [ -x .venv/bin/python ]; then vbin=.venv/bin; else vbin=.venv/Scripts; fi   # Windows は Scripts
-  "$vbin/python" -m pip install -q -r requirements.txt
-  if [ -n "${CLAUDE_ENV_FILE:-}" ]; then session_env "PATH=\"$PWD/$vbin:\$PATH\""; else todo+=(". $vbin/activate"); fi
 fi
 
 next="node qa/run.mjs"   # push する前の確認コマンド（ちがえば書き換える）
