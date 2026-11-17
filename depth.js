@@ -1,5 +1,5 @@
 // 深さの部品（depth.js）：1問の中に2つ目の判断を足す「自信をかける」と、まちがえた問題が間をあけて戻る「復習」。
-// 深さの版: 5
+// 深さの版: 6
 // 正：satou-aaaaa/shared-workflows の template/depth.js（各ゲームはこれをそのまま写す。直すときはひな形を直して配り、版を上げる）
 // 考え（routines/game-dev.md「1問を深くする」）:
 //   - 自信をかける：答える前に「たしか」を押せる（押さなければ「たぶん」）。自分の見立てが当たったかが2つ目の勝負になる。
@@ -36,6 +36,9 @@
   var kindOf = typeof cfg.kindOf === "function" ? cfg.kindOf : function (k) { return String(k).split("|")[0]; };
   var valid = function () { return true; }; // 作り直せる鍵か（ゲームが setValid で渡す）
   var mem = null; // 保存できないあいだの控え
+  // 保存できないあいだに足した数（自信あり・当たり・覚えた）。合わせるとき「保存済みの数＋足した分」にする
+  // （多いほうを取ると、そのあいだにほかのタブが保存した分が消えていた。版6、recycle-mark #7 の CodeRabbit）
+  var pend = { sure: 0, sureOk: 0, learned: 0 };
   // 復習の控えが残っているあいだは、ゲーム本体の保存がうまくいっても帯を消さない（2026-11-11 CodeRabbit、版3）
   var held = false;
   function hold() {
@@ -46,7 +49,8 @@
   var last = null; // いまの問題の { key, sure, ok }（自信ありでまちがえたら、mark で復習に入れる）
   var today = function () { return new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); };
   var addDays = function (d, n) { return new Date(Date.parse(d + "T00:00:00Z") + n * 864e5).toISOString().slice(0, 10); };
-  var num = function (v) { return Number.isFinite(+v) && +v >= 0 ? Math.floor(+v) : 0; };
+  // 文字・数でないもの（{ toString: null } など）は + で例外になるので先に外す（版6、kimari-sagashi #17 の CodeRabbit）
+  var num = function (v) { if (typeof v !== "number" && typeof v !== "string") return 0; return Number.isFinite(+v) && +v >= 0 ? Math.floor(+v) : 0; };
   var okDate = function (v) { return typeof v === "string" && /^\d{4}-\d\d-\d\d$/.test(v) && Number.isFinite(Date.parse(v + "T00:00:00Z")); };
   // rv はプロトタイプの無い辞書にする（鍵が constructor・__proto__ などでも、もとからある値と混ざらない）
   // gone は「覚えた」で消した鍵と消した時刻（保存に失敗した控えと合わせるとき、保存済みの古い項目を戻さない。版4、hatsuden-kurabe #1 の CodeRabbit）
@@ -92,10 +96,10 @@
     try { a = mem !== null ? JSON.parse(mem) : null; } catch (e) {}
     if (!a) return tidy(b);
     if (!b) return tidy(a);
-    // 保存に失敗していたあいだの控えと、保存されている分を合わせる（数は多いほう、復習は新しく書いたほう）
+    // 保存に失敗していたあいだの控えと、保存されている分を合わせる（数は保存済み＋控えで足した分、復習は新しく書いたほう）
     a = tidy(a); b = tidy(b);
     var s = fresh();
-    s.sure = Math.max(a.sure, b.sure); s.sureOk = Math.max(a.sureOk, b.sureOk); s.learned = Math.max(a.learned, b.learned);
+    ["sure", "sureOk", "learned"].forEach(function (n) { s[n] = Math.max(a[n], b[n] + pend[n]); });
     [b.rv, a.rv].forEach(function (rv) { for (var k in rv) if (!s.rv[k] || rv[k].t >= s.rv[k].t) s.rv[k] = rv[k]; });
     // 消した印も合わせる（控えで消した項目を、保存されている分から戻さない。版4）
     [b.gone, a.gone].forEach(function (gone) { for (var k in gone) if (!(k in s.gone) || gone[k] > s.gone[k]) s.gone[k] = gone[k]; });
@@ -103,10 +107,12 @@
     return tidy(s);
   }
   function write(fn) {
-    var s = read();
+    var s = read(), was = { sure: s.sure, sureOk: s.sureOk, learned: s.learned };
     fn(s);
     var j = JSON.stringify(s);
-    try { localStorage.setItem(KEY, j); mem = null; } catch (e) { mem = j; hold(); if (typeof window.saveWarn === "function") { try { window.saveWarn(true); } catch (e2) {} } }
+    try { localStorage.setItem(KEY, j); mem = null; pend = { sure: 0, sureOk: 0, learned: 0 }; } catch (e) {
+      for (var n in pend) pend[n] += Math.max(0, num(s[n]) - was[n]);
+      mem = j; hold(); if (typeof window.saveWarn === "function") { try { window.saveWarn(true); } catch (e2) {} } }
     return s;
   }
 
@@ -133,8 +139,15 @@
     list.sort(function (a, b) { return a[1].due < b[1].due ? -1 : a[1].due > b[1].due ? 1 : a[1].t - b[1].t; });
     var groups = Object.create(null), order = [];
     list.forEach(function (e) { var g = kindOf(e[0]); if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(e[0]); });
-    var out = [];
-    while (out.length < Math.min(DUE_MAX, list.length)) order.forEach(function (g) { if (groups[g].length && out.length < DUE_MAX) out.push(groups[g].shift()); });
+    // 毎回、直前と別の種類のうち残りが多いものから出す（同じなら古いほう）。数がかたよっていても、続けずに並べられるなら続けない
+    // （順に1つずつ取ると a2・b3・c5 で c が4つ続いていた。版6、teate-junban #9 の CodeRabbit）
+    var out = [], prev = null, n = Math.min(DUE_MAX, list.length);
+    while (out.length < n) {
+      var pick = null;
+      order.forEach(function (g) { if (groups[g].length && g !== prev && (pick === null || groups[g].length > groups[pick].length)) pick = g; });
+      if (pick === null) pick = prev;
+      out.push(groups[pick].shift()); prev = pick;
+    }
     return out;
   }
   function okKey(k) { try { return !!valid(k); } catch (e) { return false; } }
@@ -200,5 +213,5 @@
   }
   if (document.head) style(); else document.addEventListener("DOMContentLoaded", style);
 
-  window.Depth = { VERSION: 3, KEY: KEY, GAPS: GAPS, mark: mark, due: due, count: count, waiting: waiting, setValid: setValid, sureHtml: sureHtml, bindSure: bindSure, judge: judge, runStart: runStart, runStats: runStats, stats: stats, _tidy: tidy };
+  window.Depth = { VERSION: 6, KEY: KEY, GAPS: GAPS, mark: mark, due: due, count: count, waiting: waiting, setValid: setValid, sureHtml: sureHtml, bindSure: bindSure, judge: judge, runStart: runStart, runStats: runStats, stats: stats, _tidy: tidy };
 })();
