@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { checkTransfer } from "./transfer-check.mjs";
 import { checkSwStall } from "./sw-check.mjs";
+import { checkDepth } from "./depth-check.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const results = [];
@@ -121,7 +122,7 @@ check("記号の絵は自前で描いたこと・迷ったらタグと付記用�
 { const hk = JSON.parse(readFileSync(path.join(root, ".claude/settings.json"), "utf8")).hooks.SessionStart || []; check("クラウドの会話を始めたときも再開したときも準備を回す（SessionStart の matcher に startup と resume）", hk.some((h) => /(^|\|)startup(\||$)/.test(h.matcher) && /(^|\|)resume(\||$)/.test(h.matcher) && JSON.stringify(h.hooks).includes("scripts/setup.sh"))); }
 check("README に出典（公的機関）を並べる", Object.values(G.SRC).every(([, u]) => readFileSync(path.join(root, "README.md"), "utf8").includes(u)));
 check("画面にお笑いの言葉を入れない（本物っぽく）", !/お笑い|ギャグ|ツッコミ|なんでやねん|（うそ）/.test(html));
-check("引き継ぎ：transfer.js をゲームの script より前に、このゲームの記録のキーだけで読む", /<script src="transfer\.js" data-game="sentaku-hyoji" data-keys="sentaku-v1,sentaku-fs"><\/script>\s*<\/head>/.test(html) && html.indexOf('src="transfer.js"') < html.indexOf('src="gen.js"') && /data-hk/.test(html) && existsSync(path.join(root, "transfer.js")));
+check("引き継ぎ：transfer.js をゲームの script より前に、このゲームの記録のキー（記録・文字・復習）だけで読む・depth.js も前に読む", /<script src="transfer\.js" data-game="sentaku-hyoji" data-keys="sentaku-v1,sentaku-fs,sentaku-depth"><\/script>\s*<script src="depth\.js" data-game="sentaku-hyoji" data-key="sentaku-depth"><\/script>\s*<\/head>/.test(html) && html.indexOf('src="transfer.js"') < html.indexOf('src="gen.js"') && html.indexOf('src="depth.js"') < html.indexOf('src="gen.js"') && /data-hk/.test(html) && existsSync(path.join(root, "transfer.js")));
 { const og = (k) => (html.match(new RegExp(`<meta (?:property|name)="${k}" content="([^"]+)"`)) || [])[1] || "";
   const png = readFileSync(path.join(root, "og.png"));
   check("SNS で貼ると絵と題が出る（OGP・1200×630・絶対URL）", og("og:title") && og("og:description") && og("og:image") === "https://satou-aaaaa.github.io/sentaku-hyoji/og.png" && og("twitter:card") === "summary_large_image" && png.readUInt32BE(16) === 1200 && png.readUInt32BE(20) === 630); }
@@ -131,7 +132,7 @@ check("引き継ぎ：transfer.js をゲームの script より前に、この�
 check("README の URL のすぐ後ろに全角の字を続けない（Link check が URL の一部と読む）", !/https?:\/\/[\x21-\x7e]*[^\x00-\x7f]/.test(readFileSync(path.join(root, "README.md"), "utf8").replace(/\]\(https?:\/\/[^)\s]+\)/g, "").replace(/<https?:\/\/[^>\s]+>/g, "")));
 { const sw = readFileSync(path.join(root, "sw.js"), "utf8"), mf = JSON.parse(readFileSync(path.join(root, "manifest.webmanifest"), "utf8"));
   const shell = JSON.parse(sw.match(/SHELL = (\[[^\]]+\])/)[1]);
-  check("PWA：sw.js は画面のファイルを全部保存し（引き継ぎの transfer.js も）、外へ何も送らない", ["./index.html", "./gen.js", "./transfer.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"].every((f) => shell.includes(f)) && !/https?:\/\//.test(sw.replace(/^\/\/.*$/gm, "")));
+  check("PWA：sw.js は画面のファイルを全部保存し（引き継ぎの transfer.js・深さの depth.js も）、外へ何も送らない", ["./index.html", "./gen.js", "./transfer.js", "./depth.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"].every((f) => shell.includes(f)) && !/https?:\/\//.test(sw.replace(/^\/\/.*$/gm, "")));
   check("PWA：manifest にアイコン2つと名前がある", mf.name === "洗濯表示よみ" && mf.icons.length >= 2 && mf.start_url === "./"); }
 { const st = await checkSwStall(readFileSync(path.join(root, "sw.js"), "utf8"));
   check("PWA：本文の途中で通信が止まっても、4秒で保存したものを返す（ふつうはネットの返事。shared-workflows incidents/2026-11-07-sw-body-stall.md）", st.ok, JSON.stringify(st)); }
@@ -334,7 +335,7 @@ try {
   }
   // 実績・このゲームについて
   await p.evaluate(() => __bs.home()); await p.click("#go-ach");
-  check("実績は13個で、腕前・集める・続けるの3つの組", await p.locator(".ach").count() === 13 && await p.locator(".agrp").count() === 3 && await p.locator(".ach.got").count() >= 3);
+  check("実績は15個で、腕前・集める・続けるの3つの組", await p.locator(".ach").count() === 15 && await p.locator(".agrp").count() === 3 && await p.locator(".ach.got").count() >= 3);
   check("達成した実績は ✓ の文字も付く（色だけで分けない）", (await p.textContent(".ach.got b")).startsWith("✓"));
   await p.click("#back"); await p.click("#f-about");
   check("このゲームについて：出典（公的機関）と、絵・付記用語の注意", (await p.textContent("#about")).includes("付記用語") && await p.locator("#about a").count() >= Object.keys(G.SRC).length);
@@ -409,7 +410,7 @@ try {
         await q.waitForTimeout(100);
         const ov = await q.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         if (ov > 0) bad.push(`${w}px 文字${fs} ${go || "ホーム"} ${ov}px`);
-        small.push(...(await q.$$eval("button:not([disabled]), a[href]", (bs) => bs.filter((b) => b.checkVisibility() && !b.closest(".cal")).filter((b) => b.getBoundingClientRect().height < 44).map((b) => (b.id || b.className || b.textContent).slice(0, 20)))).map((x) => `${w}/${fs}/${go}:${x}`));
+        small.push(...(await q.$$eval("button:not([disabled]), a[href]", (bs) => bs.filter((b) => b.checkVisibility() && !b.closest(".cal")).filter((b) => Math.round(b.getBoundingClientRect().height) < 44).map((b) => (b.id || b.className || b.textContent).slice(0, 20)))).map((x) => `${w}/${fs}/${go}:${x}`));
       }
       await q.context().close();
     }
@@ -435,11 +436,78 @@ try {
     check("キーボードだけで選んで答えられる", await q.locator(".verdict").count() === 1);
     await q.context().close();
   }
+  // 1問を深くする：自信をかける・復習（shared-workflows routines/game-dev.md「1問を深くする」・depth.js）
+  {
+    const DK = "sentaku-depth", dpOf = (q) => q.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), DK);
+    const setRv = (q, rv, only) => q.evaluate(([k, rv, only]) => { const d = JSON.parse(localStorage.getItem(k) || '{"v":1}'); d.rv = only ? rv : Object.assign(d.rv || {}, rv); localStorage.setItem(k, JSON.stringify(d)); }, [DK, rv, only]);
+    const dayAfter = (n) => new Date(Date.parse(TODAY) + n * 864e5).toISOString().slice(0, 10);
+    const q = await newPage(); await closeHow(q);
+    await q.click("#go-d"); await q.waitForTimeout(100);
+    const sb = await q.$eval("#dp-sure", (b) => [b.getBoundingClientRect().height, b.getAttribute("aria-pressed"), b.textContent]);
+    check("問題の画面に「🎯 自信あり？」のボタン（高さ44px以上・押す前は ✓ なし）", Math.round(sb[0]) >= 44 && sb[1] === "false" && !sb[2].includes("✓"), String(sb[0]));
+    await q.click("#dp-sure");
+    check("自信のボタンを押すと ✓ が出る（色だけで分けない）", (await q.getAttribute("#dp-sure", "aria-pressed")) === "true" && (await q.textContent("#dp-sure")).includes("✓"));
+    const t1 = await q.evaluate(() => __bs.cur().tag);
+    await q.click(`.ch[data-j="${await wrongIdx(q)}"]`); await q.waitForTimeout(100);
+    check("自信ありでまちがえると、知らせに「思いこみ」と出て、自信は変えられない", (await q.textContent("#msg")).includes("思いこみ") && (await q.locator("#dp-sure:disabled").count()) === 1);
+    check("まちがえたその時に復習へ入る（解き終えずにやめても残る）", !!((await dpOf(q)).rv || {})[t1]);
+    await q.click(`.ch[data-j="${await ansIdx(q)}"]`); await q.waitForSelector(".verdict");
+    check("正解の説明に「自信ありでまちがえた」と出る", (await q.textContent(".verdict")).includes("自信ありでまちがえた"));
+    await q.click("#next");
+    check("次の問題には自信のボタンが出直す", (await q.locator("#dp-sure").count()) === 1);
+    for (let i = 1; i < 5; i++) { await solve(q); await q.click("#next"); }
+    await q.waitForTimeout(100);
+    check("終えた直後の結果に「自信ありの当たり 0/1」が出る", (await q.locator("#surestat").count()) === 1 && (await q.textContent("#surestat")).includes("0/1"));
+    let dp = await dpOf(q);
+    check("まちがえた・ヒントを使った問題だけ復習に入る・自信は1回だけ数える", Object.keys(dp.rv || {}).join() === t1 && dp.sure === 1 && dp.sureOk === 0, Object.keys(dp.rv || {}).join() + " sure=" + dp.sure);
+    const before = JSON.stringify((await mem(q)).days);
+    await q.goto(url); await q.waitForTimeout(150);
+    check("日の来ていない復習は、ホームに出ない", (await q.locator("#go-r").count()) === 0);
+    await setRv(q, { [t1]: { s: 0, due: "2026-01-01", t: 1 } });
+    await q.goto(url); await q.waitForTimeout(150);
+    check("日を進めると（日の来た復習があると）、ホームに「復習 1問」", ((await q.locator("#go-r").count()) ? await q.textContent("#go-r") : "").includes("復習 1問"));
+    await q.click("#go-r"); await q.waitForTimeout(100);
+    check("復習の画面は「復習」と出る・同じ問題", (await q.textContent("header")).includes("復習") && await q.evaluate(() => __bs.cur().tag) === t1);
+    await q.click("#dp-sure"); await solve(q);
+    check("自信ありで正解すると「自信ありで当てた」", (await q.textContent(".verdict")).includes("自信ありで当てた"));
+    await q.click("#next"); await q.waitForTimeout(100);
+    dp = await dpOf(q);
+    check("復習を終えると結果は「復習」・今日の記録は増えない・シェアは出ない", (await q.textContent("h1")).includes("復習") && JSON.stringify((await mem(q)).days) === before && (await q.locator("#share").count()) === 0);
+    check("復習で一度で正解すると、次は3日後へ進む", dp.rv[t1] && dp.rv[t1].s === 1 && dp.rv[t1].due === dayAfter(3) && dp.sureOk === 1);
+    await q.goto(url); await q.waitForTimeout(150);
+    check("復習を終えたら、ホームの「復習」は消える", (await q.locator("#go-r").count()) === 0);
+    await setRv(q, { "nai|1": { s: 0, due: "2026-01-01", t: 2 }, "constructor|x": { s: 0, due: "2026-01-01", t: 3 } });
+    await q.goto(url); await q.waitForTimeout(150);
+    check("作り直せない鍵（無い種類・constructor）は復習に数えず、ホームも出る", (await q.locator("#go-d").count()) === 1 && (await q.locator("#go-r").count()) === 0);
+    // 復習の途中でヒントを使って日の来た問題が0になっても、ホームの「復習の続きから」で戻れる
+    await setRv(q, { [t1]: { s: 0, due: "2026-01-01", t: 9 } }, true);
+    await q.goto(url); await q.waitForTimeout(150); await q.click("#go-r"); await q.click("#hint"); await q.waitForTimeout(100);
+    check("復習の途中でヒントを使うと、その時に1日後へ戻る", (await dpOf(q)).rv[t1].due === dayAfter(1));
+    await q.goto(url); await q.waitForTimeout(150);
+    check("復習の途中で日の来た問題が0になっても、ホームの「復習の続きから」で戻れる", ((await q.locator("#go-r").count()) ? await q.textContent("#go-r") : "").includes("続きから"));
+    await q.click("#go-r"); await q.waitForTimeout(100);
+    check("復習の続きは同じ問題・使ったヒントはそのまま", await q.evaluate(() => __bs.cur().tag) === t1 && await q.evaluate(() => __bs.cur().hints) === 1);
+    // 別のタブで先に進んだ古い画面でヒントを押しても、復習の段は戻らない
+    await q.evaluate((t) => { __bs.save((s) => { s.runs.r.res.push({ m: 0 }); s.runs.r.cur = null; }); const d = JSON.parse(localStorage.getItem("sentaku-depth")); d.rv[t] = { s: 2, due: "2099-01-01", t: 99 }; localStorage.setItem("sentaku-depth", JSON.stringify(d)); }, t1);
+    await q.click("#hint"); await q.waitForTimeout(100);
+    check("別のタブで先に進んだ古い画面でヒントを押しても、復習の段は戻らない", (await dpOf(q)).rv[t1].s === 2);
+    const m2 = await mem(q);
+    check("復習はカレンダー・あとから・連続の記録に入らない", Object.keys(m2.days).length === 1 && Object.keys(m2.adays).length === 0);
+    // とことんでまちがえてから「ここで降りる」と、解き終えていない問題も復習に入る
+    await q.evaluate(() => { __bs.save((s) => { s.runs.r = null; }); localStorage.setItem("sentaku-depth", '{"v":1}'); });
+    await q.goto(url); await q.waitForTimeout(150); await q.click("#go-e"); await q.waitForTimeout(100);
+    const te = await q.evaluate(() => __bs.cur().tag);
+    await q.click(`.ch[data-j="${await wrongIdx(q)}"]`); await q.waitForTimeout(100); await q.click("#quit"); await q.waitForTimeout(100);
+    check("とことんでまちがえてから降りても、その問題は復習に入る", !!((await dpOf(q)).rv || {})[te]);
+    await q.context().close();
+  }
 } catch (e) { check("ブラウザでの検査が最後まで動く", false, e.stack.split("\n").slice(0, 3).join(" ")); }
 
+// 深さの部品（shared-workflows template/qa/depth-check.mjs）
+{ const e = await checkDepth(readFileSync(path.join(root, "depth.js"), "utf8")); check("depth.js（自信をかける・復習）の動き", e.length === 0, e.join(" / ")); }
 // 引き継ぎコード（shared-workflows template/qa/transfer-check.mjs）
 try {
-  const sample = { "sentaku-v1": JSON.stringify({ v: 1, tut: true, days: { "2026-11-07": { m: [0, 1, 0, 0, 2], k: ["temp", "iron", "dry", "pro", "pair"] } }, hdays: {}, adays: {}, dex: { temp: 1, iron: 1, dry: 1, pro: 1, pair: 1 }, runs: {}, kofi: {}, ach: {}, ebest: 7, t: 1 }), "sentaku-fs": "3" };
+  const sample = { "sentaku-v1": JSON.stringify({ v: 1, tut: true, days: { "2026-11-07": { m: [0, 1, 0, 0, 2], k: ["temp", "iron", "dry", "pro", "pair"] } }, hdays: {}, adays: {}, dex: { temp: 1, iron: 1, dry: 1, pro: 1, pair: 1 }, runs: {}, kofi: {}, ach: {}, ebest: 7, t: 1 }), "sentaku-fs": "3", "sentaku-depth": JSON.stringify({ v: 1, rv: { "temp|x1": { s: 1, due: "2026-11-20", t: 5 } } }) }; // 復習の記録も引き継ぐかを見る
   await checkTransfer({ browser, url, game: "sentaku-hyoji", sample, check, open: async (pg) => { if (await pg.locator("#howto[open]").count()) await pg.click("#howto-ok"); } });
 } catch (e) { check("引き継ぎの検査が最後まで動く", false, e.message.split("\n")[0]); }
   { const c = await browser.newContext(); const r = await c.newPage(); const big = []; // 題が h1{flex:1} で縦に伸び（伸びない形と比べて4pxより高ければ失敗）、iPad の縦で大きなすき間が出た（shared-workflows incidents/2026-11-07-title-stretched.md）
