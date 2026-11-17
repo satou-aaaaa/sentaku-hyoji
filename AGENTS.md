@@ -26,14 +26,15 @@ node qa/run.mjs   # 問題（15種類×2000問を別の表で解き直す・タ�
 - 好きなだけ遊べる：チケット・回数制限・🔒で開くモードを入れない（2026-11-06 satou さん。寄付で成り立たせるため）。上級・とことん・練習は、はじめての日から押せる（QA が見る）。
 - とことん（`runs.e`）：やさしい5→ふつう10→むずかしい85問を毎回ちがう種で出し、残りが10問を切ったら `moreList` でむずかしいを40問足して終わらない。まちがえてもヒントを使っても続き、「ここで降りる」で終わる。1回の中で同じ問題（`keyOf`：記号・答え）を出さない（`freshTag`。尽きた種類は同じ難しさの別の種類に替える）。自己ベスト `ebest` は一度で正解した数。今日の記録・連続・Ko-fi・シェアには数えない（記号帳には載る）。他の人との順位は出さない。前の形の `life` は読まない。
 - 記号帳（`dex`）：解いた種類の「覚えること」（`note`）が集まり、押すとその種類だけで練習。下に全部の記号と意味の早見（`ALL`）。ホームの「今日のひとこと」は `note` を日ごとに1つ。
-- 実績（`ACH` 13個）は記録から毎回数え、新しく残すのは知らせ終えた印 `ach` だけ。続けるは連続でなく合わせた日数（`playedDays`）。連続の日は1以上のときだけ出す（休んだ日を責めない）。取りこぼした日（きのう〜7日前、`EPOCH` より後）はカレンダーから「あとから」遊べる（`runs["a:日付"]`・記録は `adays`。連続・今日の記録・Ko-fi・シェアには数えない）。
+- 深さ（`depth.js`・`qa/depth-check.mjs` は shared-workflows `template/` の写し。ここで直さない）：答える前に「🎯 自信あり？」（まちがえる前だけ）。まちがえた・ヒントを使った問題は、その時に復習へ入る（鍵は問題の tag。`Depth.setValid` で作り直せない鍵は数えない）。記録は別のキー `sentaku-depth`。復習（`runs.r`）は今日の記録・連続・Ko-fi・カレンダー・シェアに数えない（記号帳・実績には入る）。途中の復習はホームの「復習の続きから」。
+- 実績（`ACH` 15個。「たしかの目」「覚えなおし」は depth.js の `Depth.stats()`）は記録から毎回数え、新しく残すのは知らせ終えた印 `ach` だけ。続けるは連続でなく合わせた日数（`playedDays`）。連続の日は1以上のときだけ出す（休んだ日を責めない）。取りこぼした日（きのう〜7日前、`EPOCH` より後）はカレンダーから「あとから」遊べる（`runs["a:日付"]`・記録は `adays`。連続・今日の記録・Ko-fi・シェアには数えない）。
 - 色だけで分けない：記号は形だけで分かる（色を使わない）。正解は「✓ 正解」、まちがいは「✕ ちがう」の文字も出す。シェアの印も 🟢🔶🔺 で形がちがう。
 - 共有は遊ぶ人が押したときに開くリンク（X・LINE・Web Share・コピー）だけ。シェアの文に問題と答えを出さない。
 - 感想は「感想を送る」から GitHub の Issue フォーム（`.github/ISSUE_TEMPLATE/feedback.yml`）を開くだけ。名前・メールは聞かない。
 - 応援は Ko-fi（https://ko-fi.com/satouaaaaa）へのただのリンクだけ。今日の5問・上級を初めて終えて全部まちがいなしのときだけ、結果の画面の下に1行。遊ぶのは無料のまま、有料版は置かない。
 - 外へ通信しない。外から読むのは Google Fonts の文字だけ（CSP の `connect-src 'self'` を広げない）。記録は遊ぶ人のブラウザ（localStorage）だけ。
 - 見やすさ：`</head>` の前の見やすさの設定（`<!-- a11y:begin -->`〜`end`）は shared-workflows `template/a11y/a11y.html` の写し、`qa/a11y.mjs` は `template/qa/a11y.mjs` の写しで、ここでは直さない。
-- 引き継ぎ：`transfer.js` と `qa/transfer-check.mjs` は shared-workflows `template/` の写しで、ここでは直さない。`data-keys` は `sentaku-v1,sentaku-fs`（見やすさの a11y-v1 は全部のゲームで分け合うので入れない）。記録の形を変えたら QA の `sample` も合わせる。
+- 引き継ぎ：`transfer.js` と `qa/transfer-check.mjs` は shared-workflows `template/` の写しで、ここでは直さない。`data-keys` は `sentaku-v1,sentaku-fs,sentaku-depth`（見やすさの a11y-v1 は全部のゲームで分け合うので入れない）。記録の形を変えたら QA の `sample` も合わせる。
 - 同じ日はどの端末でも同じ問題にする：乱数は `sort` の比較の中で引かない（QA が見る）。少し遅れて動く処理（setTimeout）は、画面が替わっていたら何もしない。
 - 機能を足す・直すたびに `qa/run.mjs` に検査を足す。乱数で組む部分は何百〜何千回も作って確かめる（shared-workflows `incidents/2026-10-31-roppo-empty-village.md`）。
 - PWA（`manifest.webmanifest`・`sw.js`・`icon-*.png`）：画面のファイルを足したら `sw.js` の `SHELL` にも足し、中身を大きく変えたら `CACHE` の版を上げる。アイコンは `node tools/make-icons.cjs`、SNS 用の絵 `og.png` は `node tools/make-og.cjs`（今日の問題を入れない）。
