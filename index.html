@@ -666,7 +666,7 @@ function play() {
   $("back").onclick = home;
   document.querySelectorAll(".ch").forEach((b) => (b.onclick = () => choose(+b.dataset.j)));
   if ($("hint")) $("hint").onclick = hint;
-  if ($("quit")) $("quit").onclick = () => { if (cur && cur.done) return; save((s2) => { const r = s2.runs.e; if (r && r.id === run.id) r.over = true; }); finish(); };
+  if ($("quit")) $("quit").onclick = () => { save((s2) => { const r = s2.runs.e; if (r && r.id === run.id) r.over = true; }); finish(); };
   paint();
   toTop();
 }
@@ -698,6 +698,7 @@ function choose(j) {
   const m = missOf(), st = starsOf(m), P = cur.P;
   const s = save((s) => { const r = s.runs[MODE]; if (!same(r)) return; r.res.push({ m }); r.cur = null; s.dex[P.kind] = (s.dex[P.kind] || 0) + 1; });
   const r = s.runs[MODE], fin = r && r.res.length >= r.list.length;
+  if ($("quit") && r && r.mode === "e") $("quit").textContent = `ここで降りる（${r.res.length}問で終える）`; // 正解した直後に降りても、その問題を数える
   document.querySelectorAll(".ch").forEach((b) => { b.disabled = true; if (P.opts[+b.dataset.j] === P.ans) b.classList.add("ok"); });
   if ($("hint")) $("hint").disabled = true;
   $("hintbox").innerHTML = ""; $("msg").className = "msg"; $("msg").textContent = "";

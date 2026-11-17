@@ -280,6 +280,15 @@ try {
   check("とことんは、まちがえてもヒントを使っても続く（🌸・チケットなし）", await p.locator(".ch").count() === 4 && await p.evaluate(() => __bs.cur().i) === 4 && !/🌸|🎫/.test(await p.textContent("#app")));
   await p.click("#quit"); await p.waitForTimeout(150);
   check("「ここで降りる」で結果：解いた数と、一度で正解した数", (await p.textContent("#eres")).includes("4問") && (await p.textContent("#eclean")).includes("一度で正解 2問"));
+  {
+    // 正解した直後に「ここで降りる」を押しても降りられ、いま解いた問題も数える（shared-workflows incidents/2026-11-17-known-game-bugs-spread.md）
+    const q0 = await newPage(); await closeHow(q0);
+    await q0.click("#go-e"); await solve(q0);
+    const qt = await q0.textContent("#quit");
+    await q0.click("#quit"); await q0.waitForTimeout(150);
+    check("とことん：正解した直後に降りると、ボタンは「1問で終える」で、結果に1問が入る", qt.includes("1問で終える") && (await q0.locator("#eres").count()) === 1 && (await q0.textContent("#eres")).includes("1問"), qt);
+    await q0.context().close();
+  }
   { // ヒント2で消した選び肢は、残ったまちがいを選んでも戻らない（2026-11-17）
     const q = await newPage(); await closeHow(q); await q.click("#go-d"); await q.click("#hint"); await q.click("#hint");
     const cut0 = await q.evaluate(() => [...document.querySelectorAll(".ch.ng")].map((b) => b.dataset.j));
