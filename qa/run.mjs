@@ -173,7 +173,7 @@ async function solve(p, { wrong = 0 } = {}) {
 try {
   // はじめて：遊び方が出る・文字の大きさ
   const p = await newPage();
-  check("はじめて開くと遊び方が出る", await p.locator("#core-coach").count() === 1);
+  check("はじめて開くと遊び方が出る", await p.locator("#core-coach").waitFor({ timeout: 3000 }).then(() => true, () => false));
   await firstClose(p);
   check("文字の大きさ：はじめは「大きい」（18px）", await p.evaluate(() => getComputedStyle(document.documentElement).fontSize) === "18px");
   await p.click('.fsrow button[data-fs="3"]');
@@ -185,7 +185,7 @@ try {
 
   {
     const q = await newPage();
-    check("遊び方：Esc で閉じても出る", await q.locator("#core-coach").count() === 1);
+    check("遊び方：Esc で閉じても出る", await q.locator("#core-coach").waitFor({ timeout: 3000 }).then(() => true, () => false));
     await q.keyboard.press("Escape"); await q.waitForTimeout(100);
     const shut = await q.locator("#howto[open]").count() === 0;
     await q.evaluate(() => __bs.home()); await q.waitForTimeout(100);
